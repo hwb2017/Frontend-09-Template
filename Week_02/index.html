@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>寻路算法</title>
+  <style>
+    .cell {
+      display: inline-block;
+      width: 6px;
+      height: 6px;
+      background-color: gray;
+      border-bottom: solid 1px white;
+      border-right: solid 1px white;
+    }
+    .btn {
+      margin: 10px 10px;
+    }
+    #container {
+      width: 701px;
+      font-size: 0;
+    }
+    body {
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <button id="save-btn" class="btn">save</button>
+  <button id="clear-btn" class="btn">clear</button>
+  <button id="find-btn" class="btn">find from [0,0] to [50,50]</button>
+  <div id="container"></div>
+  <script>
+    let map = localStorage['map'] ? JSON.parse(localStorage['map']) : Array(10000).fill(0);
+    // 获取元素
+    let container = document.getElementById("container");
+    let saveBtn = document.getElementById("save-btn");
+    let clearBtn = document.getElementById("clear-btn");
+    let findBtn = document.getElementById("find-btn");
+    let mousedown = false;
+    let clear = false;
+
+    // 添加监听事件
+    document.addEventListener("mousedown", e => {
+      mousedown = true;
+      clear = (e.which === 3);
+    });
+    document.addEventListener("mouseup", e => mousedown = false);
+    document.addEventListener("contextmenu", e => e.preventDefault());
+    saveBtn.addEventListener("click", () => localStorage['map'] = JSON.stringify(map));
+    clearBtn.addEventListener("click", () => {
+      map = Array(10000).fill(0);
+      showMap();
+    });
+    findBtn.addEventListener("click", () => {
+      findPath(map, [0,0], [50,50]);
+    });
+
+    // 辅助函数
+    function sleep(t) {
+      return new Promise(function(resolve){
+        setTimeout(resolve, t);
+      })
+    }
+    // 渲染地图函数
+    function showMap() {
+      container.innerHTML = "";
+      for (let y = 0; y < 100; y++) {
+        for (let x = 0; x < 100; x++) {
+          let cell = document.createElement("div");
+          cell.classList.add("cell");
+
+          if (map[100*y + x] == 1) {
+            cell.style.backgroundColor = "black";
+          }
+          cell.addEventListener("mousemove", () => {
+            if (mousedown) {
+              if (clear) {
+                cell.style.backgroundColor = "";
+                map[100*y + x] = 0;
+              } else {
+                cell.style.backgroundColor = "black";
+                map[100*y + x] = 1;
+              }
+            }
+          })
+          container.appendChild(cell);
+        }
+      }
+    }
+    
+    // 寻路 数据结构
+    class Sorted {
+      constructor(data, compare) {
+        this.data = data.slice();
+        this.compare = compare || ((a,b) => a - b);
+      }
+      take() {
+        if (!this.data.length) {
+          return;
+        }
+        let min = this.data[0];
+        let minIndex = 0;
+        for (let i = 0; i < this.data.length; i++) {
+          if (this.compare(this.data[i], min) < 0) {
+            min = this.data[i];
+            minIndex = i;
+          }
+        }
+        this.data[minIndex] = this.data[this.data.length - 1];
+        this.data.pop();
+        return min;
+      }
+      give(v) {
+        this.data.push(v);
+      }
+    }
+    class PathPoint {
+      constructor(point, pathLength) {
+        this.point = point;
+        this.pathLength = pathLength;
+      }
+      neighbor() {
+        let [x, y] = this.point
+        return [
+          [x-1, y],[x+1,y],[x,y-1],[x,y+1],[x+1,y+1],[x+1,y-1],[x-1,y+1],[x-1,y-1]
+        ]
+      }
+    }
+    // 寻路算法
+    function findBestNeigh(pathpoint, visited) {
+          let shortestPath = 10000;
+          let shortestNeigh = null;
+          pathpoint.neighbor().forEach( neigh => {
+            let p = visited[neigh[1]*100+neigh[0]];
+              if (p instanceof PathPoint) {
+                if (p.pathLength < shortestPath) {
+                  shortestPath = p.pathLength;
+                  shortestNeigh = neigh;
+                }
+              }
+          })
+          return new PathPoint(shortestNeigh, shortestPath);
+    }    
+    async function findPath(map, start, end) {
+      if ((start[0] == end[0]) && (start[1] == end[1])) {
+        return [];
+      }
+      let startPathPoint = new PathPoint(start, 0);
+      let queue = new Sorted([startPathPoint], (a,b) => distance(a.point) - distance(b.point));
+      let table = Object.create(map);
+      table[start[1]*100 + start[0]] = new PathPoint(start, -1);
+      container.children[start[1]*100 + start[0]].style.backgroundColor = "green";
+      container.children[end[1]*100 + end[0]].style.backgroundColor = "red";
+
+      function distance(point) {
+        return (point[0] - end[0]) ** 2 + (point[1] - end[1]) ** 2;
+      }
+
+      async function insert(x, y, pre) {
+        if (x < 0 || x >= 100 || y < 0 || y >= 100) {
+          return;
+        }
+        if (table[y*100+x]) {
+          return;
+        }
+        container.children[y*100 + x].style.backgroundColor = "lightgreen";
+        table[y*100 +x] = pre;
+        let next = new PathPoint([x, y], pre.pathLength+1);
+        queue.give(next);
+      }
+      while (queue.data.length) {
+        let current = queue.take();
+        let [x, y] = current.point;
+        if (x == end[0] && y == end[1]) {
+          let path = [];
+          while (x != start[0] || y != start[1]) {  
+            path.push([x, y]);
+            container.children[y*100 + x].style.backgroundColor = "purple";
+            await sleep(30);
+            // let pre = table[y*100 + x];
+            // [x, y] = pre.point;
+            bestNeigh = findBestNeigh(current, table);
+            console.log(bestNeigh);
+            [x, y] = bestNeigh.point;
+            current = bestNeigh;
+          }
+          return path;
+        }
+        await insert(x-1, y, current);
+        await insert(x, y-1, current);
+        await insert(x+1, y, current);
+        await insert(x, y+1, current);
+        await insert(x-1, y-1, current);
+        await insert(x+1, y-1, current);
+        await insert(x+1, y+1, current);
+        await insert(x-1, y+1, current);        
+      }
+      return null;
+    }
+    showMap();
+  </script>
+</body>
+</html>
