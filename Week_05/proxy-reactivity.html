@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Proxy与双向绑定</title>
+</head>
+<body>
+  <input type="range" id="r" min="0" max="255">
+  <input type="range" id="g" min="0" max="255">
+  <input type="range" id="b" min="0" max="255">
+  <div id="palette" style="width: 100px;height: 100px;"></div>
+  <script>
+    // object 作为 key，来存储它能够响应的所有 callback，例如：
+    // callbacks = {
+    //   {any object}: {
+    //     prop: [callback1, callback2]
+    //   }
+    // }
+    let callbacks = new Map();
+    // 存储所有的可响应对象，包括嵌套的情况
+    let reactivities = new Map();
+    let usedReactivities = [];
+    let obj = {
+      r: 1,
+      g: 1,
+      b: 1,
+    }
+    let po = reactive(obj);
+    effect(() => {
+      document.getElementById("r").value = po.r;
+    })
+    document.getElementById("r").addEventListener("input", e => po.r = +e.target.value);
+    effect(() => {
+      document.getElementById("g").value = po.g;
+    })
+    document.getElementById("g").addEventListener("input", e => po.g = +e.target.value);
+    effect(() => {
+      document.getElementById("b").value = po.b;
+    })
+    document.getElementById("b").addEventListener("input", e => po.b = +e.target.value);
+    // po数据到palette dom元素之间的单向绑定
+    effect(() => {
+      document.getElementById("palette").style.backgroundColor = `rgb(${po.r}, ${po.g}, ${po.b})`;
+    })
+
+    function effect(callback) {
+      usedReactivities = [];
+      // 钓鱼执法
+      callback();
+      // 收网行动
+      for(let reactivity of usedReactivities) {
+        if (!callbacks.has(reactivity[0])) {
+          callbacks.set(reactivity[0], new Map());
+        }
+        if (!callbacks.get(reactivity[0]).has(reactivity[1])) {
+          callbacks.get(reactivity[0]).set(reactivity[1], []);
+        }
+        // 记录档案
+        callbacks.get(reactivity[0]).get(reactivity[1]).push(callback);
+      }
+    }
+    function reactive(obj) {
+      // 避免重复注册
+      if (reactivities.has(obj)) {
+        return reactivities.get(obj);
+      }
+      let proxy = new Proxy (obj, {
+        set: function(obj, prop, value) {
+          if (callbacks.get(obj)) {
+            obj[prop] = value;
+            if (callbacks.get(obj).get(prop)) {
+              for (let callback of callbacks.get(obj).get(prop)) {
+                callback();
+              } 
+            }
+          }
+          return Reflect.set(obj, prop, value);
+          // return obj[prop];
+        },
+        get: function(obj, prop) {
+          usedReactivities.push([obj, prop]);
+          if (typeof obj[prop] === 'object') {
+            return reactive(obj[prop]);
+          }
+          return Reflect.get(obj, prop);
+          // return obj[prop];
+        }
+      })
+      // 注册可响应对象
+      reactivities.set(obj, proxy);
+      return proxy;
+    }
+  </script>
+</body>
+</html>
