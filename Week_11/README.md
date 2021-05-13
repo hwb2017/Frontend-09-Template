@@ -63,3 +63,11 @@ css的@规则中需要关注的有:
 - ::after 在元素内的靠后位置创建一个不在DOM中的元素
 - ::first-letter 将元素内的文本节点的第一个字母应用样式
 - ::first-line 将元素内的文本节点的第一行文字应用样式(不同的屏宽会拆分出不同长度的行盒，首行长度也会不同)
+
+# 思考题
+
+为什么 first-letter 可以设置 float 之类的，而 first-line 不行呢?
+
+答: 因为每个盒模型的css计算是发生在 layout 之前的，而 first-line 匹配于多行文本所拆分的第一个行盒，它要匹配的元素是在 layout 过程中才确定的。如果给 first-line 设置 float 之类的属性，它就不确定要给哪些文本元素隐式加上 display:inline-block 样式。
+
+而 first-letter 只要将文本节点的第一个字符隐式转换为 display:inline-block 的块元素，这个在 layout 之前是可以确定的

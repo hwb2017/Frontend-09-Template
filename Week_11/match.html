@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+  </head>
+  <body>
+    <div class="root">
+      <div>
+        <div class="container">
+          <div id="id" class="class"></div>
+        </div>
+      </div>
+    </div>
+    
+    <script>
+      // 只处理后代选择符和子选择符
+      const operators = [' ', '>'];
+      function match(selector, element) {
+        // 结尾加上子选择符作为哨兵，方便后续代码处理
+        let _selector = selector + ' ';
+        let selectorParts = _selector.match(/[a-z\.#=\[\]\:]+[\s\>\+\~]/g);
+        // 存储从右至左的每个复合选择器和选择符的数据
+        let rules = [];
+        console.log(selectorParts);
+        for (let i = selectorParts.length-1; i >= 0; i--) {
+          let selectorPart = selectorParts[i];
+          let length = selectorPart.length;
+          let operator = selectorPart.charAt(length-1);
+          let compoundSelectors = selectorPart.slice(0,length-1);
+          let simpleSelectors = compoundSelectors.match(/[a-z]+|\.[a-z]+|\[[a-z]+=[a-z]+\]|\:{1,2}[a-z]+|#[a-z]+/g);
+          // 忽略刚才设置的哨兵
+          if (i === selectorParts.length-1) {
+            operator = null;
+          }
+          rules.push({
+            operator: operator,
+            compoundSelectors: compoundSelectors,
+            simpleSelectors: simpleSelectors
+          })
+        }
+        console.log(rules);
+        // 设置两个指针分别指向当前的元素和选择器
+        let curElement = element;
+        for (let i = 0; i < rules.length; i++) {
+          // 最右侧的选择器如果不匹配当前元素的话，直接返回false
+          if (rules[i].operator === null) {
+            if (!matchSimpleSelectors(rules[i].simpleSelectors, curElement)) {
+              console.log("当前元素不匹配, 元素:", curElement, "选择器:", rules[i].simpleSelectors);
+              return false;
+            }
+          }
+          // 遇到后代选择符，则找寻所有的父节点，直到body
+          if (rules[i].operator === ' ') {
+            curElement = curElement.parentElement;
+            let matchFlag = false;
+            while (curElement.tagName !== 'BODY') {
+              if (!matchSimpleSelectors(rules[i].simpleSelectors, curElement)) {
+                curElement = curElement.parentElement;
+                console.log("当前父元素不匹配, 继续寻找上一父元素，父元素:", curElement, "选择器:", rules[i].simpleSelectors);
+              } else {
+                matchFlag = true;
+                break;
+              }
+            }
+            if (!matchFlag) {
+              console.log('父节点都不匹配');
+              return false;
+            }
+          }
+          // 遇到子选择符，判断父节点是否匹配样式
+          if (rules[i].operator === '+') {
+            curElement = curElement.parentElement;
+            if (!matchSimpleSelectors(rules[i].simpleSelectors, curElement)) {
+              console.log("当前父元素不匹配, 父元素:", curElement, "选择器:", rules[i].simpleSelectors);
+              return false;
+            }
+          }
+        }
+        return true;
+      }
+
+      // 判断一个元素是否匹配一个复合选择器
+      function matchSimpleSelectors(simpleSelectors, element) {
+        let idSelector = null;
+        let classSelectors = [];
+        let typeSelector = null;
+        let typeReg = /^[a-z]+$/;
+        let attributeSelector = null;
+        for (let s of simpleSelectors) {
+          if (s.startsWith('.')) {
+            classSelectors.push(s.slice(1));
+          } else if (s.startsWith('#')) {
+            idSelector = s.slice(1);
+          } else if (s.startsWith('[')) {
+            let kv = s.split(/\[|\]|=/, 3);
+            attributeSelector.key = kv[1];
+            attributeSelector.value = kv[2];
+          } else if (typeReg.test(s)) {
+            typeSelector = s;
+          }
+        }
+        if (idSelector) {
+          if (element.id !== idSelector) {
+            return false
+          }
+        }
+        if (classSelectors.length > 0) {
+          for (let classSelector of classSelectors) {
+            if (!Array.from(element.classList).includes(classSelector)) {
+              return false;
+            }
+          }
+        }
+        if (typeSelector) {
+          if (element.tagName.toLowerCase() !== typeSelector) {
+            return false;
+          }
+        }
+        if (attributeSelector) {
+          if (element.getAttribute(attributeSelector.key) !== attributeSelector.value) {
+            return false;
+          }
+        }
+        return true;
+      }
+
+      if (match(".root .container+#id.class", document.getElementById("id"))) {
+        console.log("匹配成功");
+      } else {
+        console.log("匹配失败");
+      }
+    </script>
+  </body>
+</html>
