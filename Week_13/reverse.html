@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ReverseNodes</title>
+</head>
+<body>
+    <div id="a">
+        <span>1</span>
+        <p>2</p>
+        <p>3</p>
+        <div>4</div>
+    </div>
+    <script>
+        // 方法1：
+        // let element = document.getElementById("a");
+        // function reverseChildren(element) {
+        //     let children = Array.prototype.slice.call(element.childNodes);
+        //     for (let child of children) {
+        //         element.removeChild(child);
+        //     }
+        //     children.reverse();
+        //     for (let child of children) {
+        //         element.appendChild(child);
+        //     }
+        // }
+        // reverseChildren(element);
+        
+        // 方法2:
+        // Node.appendChild() 方法将一个节点附加到指定父节点的子节点列表的末尾处。
+        // 如果将被插入的节点已经存在于当前文档的文档树中，那么 appendChild() 只会将它从原先的位置移动到新的位置（不需要事先移除要移动的节点）。
+        let element = document.getElementById("a");
+        function reverseChildren(element) {
+            let length = element.children.length;
+            while (length-- > 0) {
+                console.log(element.children[length]);
+                element.appendChild(element.children[length]);
+            }
+        }
+        // 方法3: rangeAPI + fragment对象
+        function reverseChildrenByRange(element) {
+            let range = new Range();
+            range.selectNodeContents(element);
+            let fragment = range.extractContents();
+            let l = fragment.childNodes.length;
+            while (l-- > 0) {
+                // fragment对象游离于DOM树之外，对它进行增删改查不会引起重排，性能更高
+                fragment.appendChild(fragment.childNodes[l]);
+            }
+            element.appendChild(fragment);
+        }
+        // reverseChildren(element);
+        reverseChildrenByRange(element);
+    </script>
+</body>
+</html>
