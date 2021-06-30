@@ -1,1 +1,4 @@
 学习笔记
+
+使用mocha时，需要配置 @babel/register 来支持es6语法
+在使用nyc这样的代码覆盖率工具时，需要在babelrc中配置sourcemap启用sourcemap来显示未覆盖的代码在源文件中的行数
